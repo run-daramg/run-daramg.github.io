@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>run_daramg 네이버 블로그 공식 사이트맵 & 아카이브</title>
-  <meta name="description" content="run_daramg 네이버 블로그의 육아·교육·부동산, 장소, 제품, 취미생활(낚시·캠핑), AI, Hello World(IT/개발) 카테고리별 전체 글 목록입니다.">
+  <title>달려라 다람쥐 (run_daramg) 네이버 블로그 공식 사이트맵 & 아카이브</title>
+  <meta name="description" content="달려라 다람쥐(run_daramg) 네이버 블로그의 육아·교육·부동산, 장소리뷰, 제품리뷰, 취미생활(낚시·캠핑), AI, Hello World(IT/개발) 카테고리별 전체 글 목록입니다.">
   <meta name="robots" content="index, follow">
   <style>
     :root {
@@ -81,19 +81,21 @@
       padding: 22px 20px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.02);
     }
-    /* 프로필 영역 */
+    /* 프로필 영역 (세로형 프로필.png 비율에 맞춤) */
     .profile-box { text-align: center; }
-    .avatar {
-      width: 84px;
-      height: 84px;
-      border-radius: 50%;
+    .avatar-wrap {
+      width: 100%;
+      margin-bottom: 14px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
       background: #e8f9ef;
-      border: 2px solid var(--naver-green);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2.5rem;
-      margin-bottom: 12px;
+    }
+    .avatar-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
     }
     .profile-name {
       font-size: 1.25rem;
@@ -272,7 +274,7 @@
   <header class="top-bar">
     <div class="top-bar-inner">
       <a href="https://m.blog.naver.com/run_daramg" class="blog-logo">
-        <span>BLOG</span> run_daramg 블로그 사이트맵
+        <span>BLOG</span> 달려라 다람쥐 블로그 사이트맵
       </a>
       <a href="https://rss.blog.naver.com/run_daramg.xml" target="_blank" style="font-size:0.85rem; color:#666; text-decoration:none;">RSS 피드 ↗</a>
     </div>
@@ -282,8 +284,10 @@
     <!-- 좌측 사이드바: 프로필 + 카테고리 탭 + 사이트 정보 -->
     <aside class="sidebar">
       <div class="card profile-box">
-        <div class="avatar">🐿️</div>
-        <h1 class="profile-name">run_daramg</h1>
+        <div class="avatar-wrap">
+          <img src="./프로필.png" alt="달려라 다람쥐 프로필" class="avatar-img">
+        </div>
+        <h1 class="profile-name">달려라 다람쥐</h1>
         <div class="profile-id">@run_daramg</div>
         <p class="profile-bio">
           육아·학군 입시 분석, 서해 선상 쭈갑낚시, 수도권 맛집·장소 리뷰와 AI·개발 기록을 아카이빙합니다.
@@ -346,8 +350,8 @@
       <div class="card">
         <h3 class="widget-title">ℹ️ 사이트 정보</h3>
         <ul class="site-info-list">
-          <li><span>블로그명</span><strong>run_daramg</strong></li>
-          <li><span>플랫폼</span><span>네이버 블로그</span></li>
+          <li><span>블로그명</span><strong>달려라 다람쥐</strong></li>
+          <li><span>아이디</span><span>run_daramg</span></li>
           <li><span>모바일 주소</span><a href="https://m.blog.naver.com/run_daramg">m.blog.naver.com</a></li>
           <li><span>PC 주소</span><a href="https://blog.naver.com/run_daramg">blog.naver.com</a></li>
           <li><span>색인 상태</span><span style="color:#03c75a; font-weight:600;">Googlebot 허용</span></li>
@@ -399,7 +403,7 @@
         </ul>
       </section>
 
-      <!-- 2. 장소리뷰 (19개) -->
+      <!-- 2. 장소리뷰 (20개) -->
       <section class="category-section" data-category="장소리뷰">
         <div class="section-header">
           <h2>📍 장소리뷰</h2>

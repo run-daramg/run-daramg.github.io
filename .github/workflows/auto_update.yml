@@ -1,0 +1,32 @@
+name: Auto Update Naver Blog Posts
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:      # 수동으로 즉시 실행할 수 있는 버튼 활성화
+
+permissions:
+  contents: write
+
+jobs:
+  update-sitemap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run category auto-update script
+        run: python update_posts.py
+
+      - name: Commit and push if changed
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --staged --quiet || git commit -m "Auto-update new Naver blog posts by category"
+          git push

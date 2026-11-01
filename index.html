@@ -56,7 +56,7 @@
       padding: 2px 7px;
       border-radius: 4px;
     }
-    /* 메인 레이아웃 (좌측 사이드바 + 우측 본문) */
+    /* 네이버 PC 및 티스토리 스타일 2단 레이아웃 */
     .container {
       max-width: 1120px;
       margin: 28px auto;
@@ -66,27 +66,13 @@
       gap: 24px;
       align-items: start;
     }
-    /* 좌측 사이드바 (오른쪽 본문과 별개로 독립 스크롤 적용) */
+    /* 좌측 사이드바: 네이버/티스토리처럼 상단에 깔끔하게 고정되는 스타일 */
     .sidebar {
       position: sticky;
       top: 76px;
-      max-height: calc(100vh - 96px);
-      overflow-y: auto;
-      padding-right: 4px;
       display: flex;
       flex-direction: column;
       gap: 16px;
-    }
-    /* 좌측 사이드바 전용 얇은 스크롤바 스타일 */
-    .sidebar::-webkit-scrollbar {
-      width: 6px;
-    }
-    .sidebar::-webkit-scrollbar-thumb {
-      background-color: #d0d4d9;
-      border-radius: 4px;
-    }
-    .sidebar::-webkit-scrollbar-track {
-      background-color: transparent;
     }
     .card {
       background: #fff;
@@ -94,9 +80,8 @@
       border-radius: 12px;
       padding: 22px 20px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-      flex-shrink: 0;
     }
-    /* 프로필 영역 (세로형 프로필.png 비율에 맞춤) */
+    /* 프로필 영역 (세로형 일러스트 비율 유지 및 엑박 방지) */
     .profile-box { text-align: center; }
     .avatar-wrap {
       width: 100%;
@@ -278,12 +263,7 @@
     /* 모바일 반응형 */
     @media (max-width: 820px) {
       .container { grid-template-columns: 1fr; }
-      .sidebar {
-        position: static;
-        max-height: none;
-        overflow-y: visible;
-        padding-right: 0;
-      }
+      .sidebar { position: static; }
       .post-list li { flex-direction: column; gap: 4px; }
     }
   </style>
@@ -305,7 +285,7 @@
     <aside class="sidebar">
       <div class="card profile-box">
         <div class="avatar-wrap">
-          <img src="./프로필.png" alt="달려라 다람쥐 프로필" class="avatar-img">
+          <img src="./profile.png" alt="달려라 다람쥐 프로필" class="avatar-img" onerror="this.src='./프로필.png';">
         </div>
         <h1 class="profile-name">달려라 다람쥐</h1>
         <div class="profile-id">@run_daramg</div>

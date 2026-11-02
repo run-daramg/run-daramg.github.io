@@ -1,127 +1,614 @@
-import urllib.request
-import xml.etree.ElementTree as ET
-from datetime import datetime
-import re
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>달려라 다람쥐 (run_daramg) 네이버 블로그 공식 사이트맵 & 아카이브</title>
+  <meta name="description" content="달려라 다람쥐(run_daramg) 네이버 블로그의 전체 글 목록입니다.">
+  <meta name="robots" content="index, follow">
+  <style>
+    :root {
+      --naver-green: #03c75a;
+      --naver-dark: #02a94d;
+      --bg-gray: #f4f6f8;
+      --border-color: #e3e5e8;
+      --text-main: #222;
+      --text-sub: #666;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-gray);
+      color: var(--text-main);
+      line-height: 1.6;
+    }
+    /* 상단 네비게이션 바 */
+    .top-bar {
+      background-color: #fff;
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .top-bar-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .blog-logo {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--text-main);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .blog-logo span {
+      background: var(--naver-green);
+      color: #fff;
+      font-size: 0.75rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    /* 네이버 PC 및 티스토리 스타일 2단 레이아웃 */
+    .container {
+      max-width: 1120px;
+      margin: 28px auto;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    /* 좌측 사이드바 */
+    .sidebar {
+      position: sticky;
+      top: 76px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 22px 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+    /* 프로필 영역 */
+    .profile-box { text-align: center; }
+    .avatar-wrap {
+      width: 100%;
+      margin-bottom: 14px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background: #e8f9ef;
+    }
+    .avatar-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+    .profile-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .profile-id {
+      color: #888;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+    .profile-bio {
+      font-size: 0.9rem;
+      color: #444;
+      margin-bottom: 18px;
+      word-break: keep-all;
+    }
+    .btn-naver {
+      display: block;
+      width: 100%;
+      background: var(--naver-green);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.92rem;
+      padding: 11px 0;
+      border-radius: 8px;
+      transition: background 0.15s;
+    }
+    .btn-naver:hover { background: var(--naver-dark); }
 
-RSS_URL = "https://rss.blog.naver.com/run_daramg.xml"
-HTML_FILE = "index.html"
-SITEMAP_FILE = "sitemap.xml"
+    /* 카테고리 메뉴 영역 */
+    .widget-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin: 0 0 12px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #222;
+      display: flex;
+      justify-content: space-between;
+    }
+    .category-nav {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .category-nav li { margin-bottom: 4px; }
+    .cat-btn {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.93rem;
+      color: #333;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.15s;
+    }
+    .cat-btn:hover { background: #f1f3f5; }
+    .cat-btn.active {
+      background: #e8f9ef;
+      color: var(--naver-dark);
+      font-weight: 700;
+    }
+    .cat-count {
+      font-size: 0.8rem;
+      color: #888;
+      background: #f1f3f5;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+    .cat-btn.active .cat-count {
+      background: var(--naver-green);
+      color: #fff;
+    }
 
-def insert_into_category(html, category, li_html):
-    # data-category="카테고리명" 섹션의 <ul class="post-list"> 바로 아래에 새 글 삽입
-    pattern = rf'(<section class="category-section" data-category="{re.escape(category)}"[^>]*>.*?<ul[^>]*class="post-list"[^>]*>)'
-    match = re.search(pattern, html, flags=re.DOTALL)
-    if match:
-        insert_pos = match.end()
-        return html[:insert_pos] + "\n" + li_html + html[insert_pos:], True
-    return html, False
+    /* 사이트 정보 영역 */
+    .site-info-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--text-sub);
+    }
+    .site-info-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px dashed #eee;
+    }
+    .site-info-list li:last-child { border-bottom: none; }
+    .site-info-list a { color: var(--naver-dark); text-decoration: none; }
 
-def update_counts(html):
-    total_posts = 0
-    # 각 카테고리 섹션별 실제 <li> 개수를 세어 배지 및 좌측 탭 숫자 자동 갱신
-    sec_pattern = r'(<section class="category-section" data-category="([^"]+)"[^>]*>)(.*?)(</section>)'
-    
-    def sec_replacer(match):
-        nonlocal total_posts
-        header, cat, body, footer = match.groups()
-        if cat == "새글":
-            return match.group(0)
-        count = len(re.findall(r'<li>\s*<a ', body))
-        total_posts += count
-        new_body = re.sub(r'(<span class="section-badge">)\d+(개의 글</span>)', rf'\g<1>{count}\g<2>', body)
-        return header + new_body + footer
+    /* 우측 본문 컨텐츠 */
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .category-section {
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px 28px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #f1f3f5;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .section-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #111;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-badge {
+      font-size: 0.85rem;
+      color: var(--naver-green);
+      font-weight: 700;
+    }
+    .post-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .post-list li {
+      padding: 12px 6px;
+      border-bottom: 1px solid #f4f6f8;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+    }
+    .post-list li:last-child { border-bottom: none; }
+    .post-list a {
+      color: #222;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.96rem;
+      line-height: 1.45;
+      transition: color 0.15s;
+    }
+    .post-list a:hover {
+      color: var(--naver-green);
+      text-decoration: underline;
+    }
+    .date {
+      color: #999;
+      font-size: 0.82rem;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
 
-    html = re.sub(sec_pattern, sec_replacer, html, flags=re.DOTALL)
+    /* 10개 초과 시 펼치기/접기 버튼 스타일 */
+    .more-btn-wrap {
+      text-align: center;
+      margin-top: 14px;
+      padding-top: 10px;
+    }
+    .btn-toggle-more {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-toggle-more:hover {
+      background: #e8f9ef;
+      border-color: var(--naver-green);
+      color: var(--naver-dark);
+    }
 
-    # 좌측 사이드바 카테고리별 숫자 업데이트
-    for sec_match in re.finditer(sec_pattern, html, flags=re.DOTALL):
-        cat = sec_match.group(2)
-        if cat == "새글":
-            continue
-        count = len(re.findall(r'<li>\s*<a ', sec_match.group(3)))
-        btn_pattern = rf'(onclick="filterCategory\(\'{re.escape(cat)}\', this\)"[^>]*>.*?<span class="cat-count">)\d+(</span>)'
-        html = re.sub(btn_pattern, rf'\g<1>{count}\g<2>', html, flags=re.DOTALL)
+    /* 모바일 반응형 */
+    @media (max-width: 820px) {
+      .container { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .post-list li { flex-direction: column; gap: 4px; }
+    }
+  </style>
+</head>
+<body>
 
-    # 전체보기 숫자 업데이트
-    html = re.sub(r'(<span class="cat-count" id="count-all">)\d+(</span>)', rf'\g<1>{total_posts}\g<2>', html)
-    return html
+  <!-- 상단 헤더 -->
+  <header class="top-bar">
+    <div class="top-bar-inner">
+      <a href="https://m.blog.naver.com/run_daramg" class="blog-logo">
+        <span>BLOG</span> 달려라 다람쥐 블로그 사이트맵
+      </a>
+      <a href="https://rss.blog.naver.com/run_daramg.xml" target="_blank" style="font-size:0.85rem; color:#666; text-decoration:none;">RSS 피드 ↗</a>
+    </div>
+  </header>
 
-def main():
-    req = urllib.request.Request(RSS_URL, headers={'User-Agent': 'Mozilla/5.0'})
-    with urllib.request.urlopen(req) as response:
-        xml_data = response.read()
+  <div class="container">
+    <!-- 좌측 사이드바: 육아·교육·부동산 최상단 배치 -->
+    <aside class="sidebar">
+      <div class="card profile-box">
+        <div class="avatar-wrap">
+          <img src="./profile.png" alt="달려라 다람쥐 프로필" class="avatar-img" onerror="this.src='./profile.png';">
+        </div>
+        <h1 class="profile-name">달려라 다람쥐</h1>
+        <div class="profile-id">@run_daramg</div>
+        <p class="profile-bio">
+          달려라 다람쥐 일상 기록을 아카이빙합니다.
+        </p>
+        <a href="https://m.blog.naver.com/run_daramg" target="_blank" rel="noopener" class="btn-naver">
+          네이버 블로그 바로가기
+        </a>
+      </div>
 
-    root = ET.fromstring(xml_data)
+      <!-- 카테고리 탭: 육아·부동산 > 장소 > 제품 > 취미 > Hello World > AI -->
+      <nav class="card" aria-label="블로그 카테고리">
+        <h3 class="widget-title">📂 카테고리</h3>
+        <ul class="category-nav">
+          <li>
+            <button class="cat-btn active" onclick="filterCategory('all', this)">
+              <span>📋 전체보기</span>
+              <span class="cat-count" id="count-all">67</span>
+            </button>
+          </li>
+          <li>
+            <button class="cat-btn" onclick="filterCategory('육아·교육·부동산', this)">
+              <span>🎓 육아·교육·부동산</span>
+              <span class="cat-count">22</span>
+            </button>
+          </li>
+          <li>
+            <button class="cat-btn" onclick="filterCategory('장소리뷰', this)">
+              <span>📍 장소리뷰</span>
+              <span class="cat-count">20</span>
+            </button>
+          </li>
+          <li>
+            <button class="cat-btn" onclick="filterCategory('제품리뷰', this)">
+              <span>🛍️ 제품리뷰</span>
+              <span class="cat-count">12</span>
+            </button>
+          </li>
+          <li>
+            <button class="cat-btn" onclick="filterCategory('취미생활(낚시·캠핑)', this)">
+              <span>🎣 취미생활(낚시·캠핑)</span>
+              <span class="cat-count">6</span>
+            </button>
+          </li>
+          <li>
+            <button class="cat-btn" onclick="filterCategory('Hello World', this)">
+              <span>💻 Hello World</span>
+              <span class="cat-count">5</span>
+            </button>
+          </li>
+          <li>
+            <button class="cat-btn" onclick="filterCategory('AI', this)">
+              <span>🤖 AI</span>
+              <span class="cat-count">2</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
 
-    with open(HTML_FILE, "r", encoding="utf-8") as f:
-        html_content = f.read()
+      <!-- 사이트 정보 -->
+      <div class="card">
+        <h3 class="widget-title">ℹ️ 사이트 정보</h3>
+        <ul class="site-info-list">
+          <li><span>블로그명</span><strong>달려라 다람쥐</strong></li>
+          <li><span>아이디</span><span>run_daramg</span></li>
+          <li><span>모바일 주소</span><a href="https://m.blog.naver.com/run_daramg">m.blog.naver.com</a></li>
+          <li><span>PC 주소</span><a href="https://blog.naver.com/run_daramg">blog.naver.com</a></li>
+          <li><span>색인 상태</span><span style="color:#03c75a; font-weight:600;">Googlebot 허용</span></li>
+        </ul>
+      </div>
+    </aside>
 
-    items = root.findall("./channel/item")
-    added_count = 0
+    <!-- 우측 본문: 탭 순서와 동일하게 정렬 -->
+    <main class="content-area">
 
-    # 최신 글이 맨 위에 오도록 역순(오래된 순 -> 최신 순)으로 검사 및 삽입
-    for item in reversed(items):
-        title = item.find("title").text or ""
-        link = item.find("link").text or ""
-        category_el = item.find("category")
-        category = category_el.text.strip() if (category_el is not None and category_el.text) else "기타"
-        pub_date = item.find("pubDate").text or ""
+      <!-- 신규 자동 추가 글 영역 -->
+      <section class="category-section" data-category="새글" id="new-posts-section" style="display:none;">
+        <div class="section-header">
+          <h2>🆕 최신 업데이트 포스트</h2>
+        </div>
+        <ul class="post-list" id="auto-post-ul">
+          <!-- AUTO-POST-LIST -->
+        </ul>
+      </section>
 
-        # 글 번호 추출
-        match = re.search(r'run_daramg/(\d+)', link)
-        if not match:
-            continue
-        log_no = match.group(1)
+      <!-- 1. 육아·교육·부동산 (22개) -->
+      <section class="category-section" data-category="육아·교육·부동산">
+        <div class="section-header">
+          <h2>🎓 육아·교육·부동산</h2>
+          <span class="section-badge">22개의 글</span>
+        </div>
+        <ul class="post-list">
+          <li><a href="https://m.blog.naver.com/run_daramg/224461305692">광교 자연앤 센트레빌 모집공고 분석! 이런 사람은 꼭 특별청약을 노려라! (특공 물량 70% 이상, 1억 대 입주 찬스)</a><span class="date">2026.11.01.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224459912402">[광교 자연앤 센트레빌] 자격되면 무조건 청약 넣으세요! 안 넣으면 후회할 이유 총정리 (모집일정·1순위 조건·특공 물량)</a><span class="date">2026.10.31.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224457021774">[교육/학군] 서울 중학교 학업성취도 순위 Top 10 총정리 &amp; 명문중학교 공통점 분석!</a><span class="date">2026.10.31.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224458948693">2027학년 소화초등학교 일반전형 모집요강 정리 (일정, 셔틀버스 노선, 경쟁률)</a><span class="date">2026.10.30.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224454714228">서울 사립초등학교 지원 완전 가이드 - 주의사항, 작년 경쟁률, 공략법</a><span class="date">2026.10.27.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224453976083">인천 중학교 학업성취도 TOP 10 완벽 분석 (특징·공통점·이사 시 주의사항)</a><span class="date">2026.10.26.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224452641180">[2027 사립초 입학] 경기 북부에서 보내는 서울 사립초 TOP 3 &amp; 최근 경쟁률 총정리</a><span class="date">2026.10.25.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224451692358">[7세/영유 2년차] 다시 돌아간다면 영유 보낼까? 솔직한 후기</a><span class="date">2026.10.23.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224448341491">1위부터 10위까지, 경기도 중학교 학업성취도 상위권 학교는 어디일까? 우리동네 중학교는 몇위?</a><span class="date">2026.10.22.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224448312692">학군지 찾는법(2)평촌 편 - 특목고 진학률로 좋은 학군 찾기</a><span class="date">2026.10.21.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224448292709">학군지 찾는법(1)수지 편 - 좋은학군찾기 학군지의 기준은 뭘까? 용인 수지와 대표학군지 비교분석</a><span class="date">2026.10.21.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224447741568">26년 경기도 사립초 일정 주의사항 경쟁률 정리!!</a><span class="date">2026.10.20.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222340863662">[이유식] 얼갈이로 소고기배추단호박양파죽, 닭고기배추양파비트죽 만들기</a><span class="date">2021.05.07.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222329740692">[이유식] 단호박 양파 재료 냉동보관 방법 및 보관기간, 소고기단호박양파죽 만들기</a><span class="date">2021.05.01.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222313784585">[이유식] 청경채 두릅 냉동 큐브 만들기 - 냉동보관 및 보관기간</a><span class="date">2021.04.18.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222313575161">[이유식] 닭육수, 닭고기 큐브 만드는 법. 냉동보관 주의사항!</a><span class="date">2021.04.17.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222305176920">[이유식] 소고기 육수 만드는법 -끓인고기로 장조림 만들기.보관방법.주의사항</a><span class="date">2021.04.10.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222299747896">[이유식 재료] 비트/오이/브로콜리 냉동보관. 큐브 만들기. 보관기간</a><span class="date">2021.04.05.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222299700904">[5개월+] 아이의 최애 간식 사과당근퓨레 만들기 (초기 중기 이유식 간식)</a><span class="date">2021.04.05.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222298307611">아기 아토피, 침독, 접촉성피부염 - 내돈내산 치료 후기, 스테로이드 연고 주의사항</a><span class="date">2021.04.04.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222298302317">4-6개월 아기 일과표 공유 (수유,낮잠,밤잠 시간표)</a><span class="date">2021.04.04.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222296055380">유기농 아기 과일퓨레 구입기 - 아이허브로 절반가격 직구가 답!</a><span class="date">2021.04.02.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222291155640">0세 신생아 영양제 유산균+비타민D 제품추천 장단점 비교 리뷰</a><span class="date">2021.03.29.</span></li>
+        </ul>
+      </section>
 
-        # 이미 index.html에 있는 글 번호면 건너뛰기
-        if log_no in html_content:
-            continue
+      <!-- 2. 장소리뷰 (20개) -->
+      <section class="category-section" data-category="장소리뷰">
+        <div class="section-header">
+          <h2>📍 장소리뷰</h2>
+          <span class="section-badge">20개의 글</span>
+        </div>
+        <ul class="post-list">
+          <li><a href="https://m.blog.naver.com/run_daramg/224461216158">[코스트코 상봉점] 벌써 크리스마스 분위기 물씬! 11월 첫째 주 할인 품목 &amp; 주차 꿀팁 총정리 ️</a><span class="date">2026.11.02.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224460205828">[내돈내산] 남양주 아이와 가볼 만한 신상찜질방 추천! 다산 킹찜질방 (대형 키즈카페·야외 족욕존·갓성비 먹거리)</a><span class="date">2026.11.01.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224457717179">홍천 유명 맛집 '섬섬이네' 술빵, 판교 현대백화점 지하 1층 팝업스토어 방문 후기 (가격·보관법·이벤트 총정리)</a><span class="date">2026.10.30.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224456976525">[판교 맛집] 순대국 맛집 등장! '신주옥미 판교점' 내돈내산 방문 후기 (캐치테이블 예약 꿀팁)</a><span class="date">2026.10.28.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224454663635">정자역 회식장소 추천! 24시 영업이라 끝까지 달리기 좋은 '솔밭삼겹살' 내돈내산 후기</a><span class="date">2026.10.28.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224453165526">김포 신상 대형카페 자투라(ZATURA) 아이와 다녀온 이국적인 휴양지 카페</a><span class="date">2026.10.25.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224448093219">아이랑 다녀온 강릉, 이런곳들은 꼭 들리세요.</a><span class="date">2026.10.20.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222366989238">[오늘일기] 마곡역 달토끼 떡볶이 맛집 방문</a><span class="date">2021.05.25.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222363618408">[오늘일기] 별내 갈비예찬 방문</a><span class="date">2021.05.24.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222342705998">[별내] 이씨 수원왕갈비 리뷰 - 의외의 된장찌개맛집</a><span class="date">2021.05.08.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222332763526">[강서/마곡] 제주은희네 해장국 강서마곡점 내돈내먹 후기</a><span class="date">2021.05.02.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222323512197">[마곡/발산] 홍박식당 - 분위기 좋은 고기집 내돈내먹 후기!</a><span class="date">2021.04.26.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222311232070">[마곡/발산] 창고43 마곡점 - 한우 맛집 오픈! 내돈내먹 리뷰</a><span class="date">2021.04.15.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222308858747">[김포/고촌] 양차이 - 양갈비 양꼬치 마라탕 내돈내먹 배달맛집리뷰</a><span class="date">2021.04.13.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222307718350">[파주/운정] 피자1989 - 피자 파스타 내돈내먹 맛집리뷰</a><span class="date">2021.04.12.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222299673928">[김포/고촌] 떼루아 와인 아울렛 - 내돈내산 와인 구입기</a><span class="date">2021.04.05.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222297478795">[강서/마곡나루] 유메이규 - 와규 화로구이 내돈내먹 맛집리뷰</a><span class="date">2021.04.03.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222297103481">[김포/풍무] 김포 가볼만한곳 - 장릉 벚꽃구경 산책로 둘레길</a><span class="date">2021.04.03.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222295338213">[마곡/발산] 가성비 별로였던 일식비 - 내돈내먹 솔직리뷰</a><span class="date">2021.04.01.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222295332962">[마곡/발산] 우리콩짬뽕순두부 강추!! - 내돈내먹 솔직리뷰</a><span class="date">2021.04.01.</span></li>
+        </ul>
+      </section>
 
-        # 날짜 포맷 변환 (YYYY.MM.DD.)
-        try:
-            dt = datetime.strptime(pub_date, "%a, %d %b %Y %H:%M:%S %z")
-            date_str = dt.strftime("%Y.%m.%d.")
-        except Exception:
-            date_str = datetime.now().strftime("%Y.%m.%d.")
+      <!-- 3. 제품리뷰 (12개) -->
+      <section class="category-section" data-category="제품리뷰">
+        <div class="section-header">
+          <h2>🛍️ 제품리뷰</h2>
+          <span class="section-badge">12개의 글</span>
+        </div>
+        <ul class="post-list">
+          <li><a href="https://m.blog.naver.com/run_daramg/224459128265">서해안 11월 갑오징어 낚시 주의사항 &amp; 요즈리 틴셀 3호 득템 팁</a><span class="date">2026.10.31.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224456999331">[내돈내산] 설화수 윤조에센스 6세대 포함 윤조 3종 기획세트 환절기 속건조 솔직 후기</a><span class="date">2026.10.29.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224455828661">초보자 입문용으로 최고인 우라노 인쇼어 2년 사용 후기 -당근으로 떠나보내며 솔직 리뷰</a><span class="date">2026.10.27.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224452520009">[PM 주스] 매일 피로에 시달리던 워킹맘의 내돈내산 3개월 변화 후기, 나나 영양제</a><span class="date">2026.10.24.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222336741827">[공유] 오늘일기,블챌 이벤트 조기종료, 댓글 반응</a><span class="date">2021.05.04.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222318353003">[인테리어] 토레 돌체 소파 구입기</a><span class="date">2021.04.21.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222310033646">피넛스토어 삼성 공기청정기 필터 교체기</a><span class="date">2021.04.14.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222303269838">[5개월+]아기 과일 과즙망 사용법 - 사용시기 과일크기 실리콘 과즙망 주의할점</a><span class="date">2021.04.08.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222291771458">[삼성패스 오류] samsung pass를 일시적으로 사용할 수 없습니다. 나중에 다시 해보세요 (255) 에러</a><span class="date">2021.03.29.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222291760595">0~3개월 내돈내산 국민육아템 육아꿀템 신생아 생활용품 리뷰 (2)</a><span class="date">2021.03.29.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222291752426">0~3개월 내돈내산 국민육아템 육아꿀템 신생아 장난감 리뷰 (1)</a><span class="date">2021.03.29.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222291388757">아이방 가성비 홈카메라 추천 - 샤오미 홈캠 360도 CCTV 설치방법 및 리뷰</a><span class="date">2021.03.29.</span></li>
+        </ul>
+      </section>
 
-        mobile_url = f"https://m.blog.naver.com/run_daramg/{log_no}"
-        safe_title = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        li_html = f'          <li><a href="{mobile_url}">{safe_title}</a><span class="date">{date_str}</span></li>'
+      <!-- 4. 취미생활(낚시·캠핑) (6개) -->
+      <section class="category-section" data-category="취미생활(낚시·캠핑)">
+        <div class="section-header">
+          <h2>🎣 취미생활(낚시·캠핑)</h2>
+          <span class="section-badge">6개의 글</span>
+        </div>
+        <ul class="post-list">
+          <li><a href="https://m.blog.naver.com/run_daramg/224451645280">[인천남항] 덕적호 오전배 쭈갑 낚시 조황 후기 (주차 자리맡기 꿀팁 &amp; 이대조감자탕)</a><span class="date">2026.10.23.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224447203476">마검포항 자연피싱호 쭈갑 후기 - 2026 쭈갑시즌 리뷰</a><span class="date">2026.10.20.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224447189467">인천 남항 수양호 오전배 후기 - 26년 쭈갑시즌 리뷰</a><span class="date">2026.10.20.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224447173415">탄도항 신흥특호 쭈갑 후기 - 26년 쭈갑시즌 정리</a><span class="date">2026.10.20.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224447162941">오천항 발키리7호(발칠이호) 쭈갑 후기 - 26년 쭈갑시즌 리뷰</a><span class="date">2026.10.20.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224230572708">개미지옥 빠지지 않는 캠핑용품 한방에 구매하기 - 리스트 비용정리</a><span class="date">2026.03.26.</span></li>
+        </ul>
+      </section>
 
-        # 1순위: 일치하는 카테고리 섹션에 삽입
-        html_content, success = insert_into_category(html_content, category, li_html)
-        
-        # 2순위: 만약 네이버에 새 카테고리를 만들어서 기존과 이름이 다르면 상단 '새글' 섹션에 삽입
-        if not success:
-            marker = "<!-- AUTO-POST-LIST -->"
-            if marker in html_content:
-                html_content = html_content.replace(marker, marker + "\n" + li_html, 1)
-                success = True
+      <!-- 5. Hello World (5개) -->
+      <section class="category-section" data-category="Hello World">
+        <div class="section-header">
+          <h2>💻 Hello World</h2>
+          <span class="section-badge">5개의 글</span>
+        </div>
+        <ul class="post-list">
+          <li><a href="https://m.blog.naver.com/run_daramg/222329931600">[AWS] AWS 에서 웹서버 포트 설정하기!</a><span class="date">2021.05.01.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222318942323">Windows 에서 Docker 설치하여 사용하기</a><span class="date">2021.04.22.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222318912222">Windows에 WSL2 로 Ubuntu 설치하기</a><span class="date">2021.04.22.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222291785240">[Java 에러] Unsupported major.minor version 58.0</a><span class="date">2021.03.29.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/222291779039">[Docker] Build sandboxing disabled due to nsjail error. This may become fatal in the future. 오류</a><span class="date">2021.03.29.</span></li>
+        </ul>
+      </section>
 
-        if success:
-            added_count += 1
-            print(f"[추가 완료] [{category}] {title} ({log_no})")
+      <!-- 6. AI (2개) -->
+      <section class="category-section" data-category="AI">
+        <div class="section-header">
+          <h2>🤖 AI</h2>
+          <span class="section-badge">2개의 글</span>
+        </div>
+        <ul class="post-list">
+          <li><a href="https://m.blog.naver.com/run_daramg/224424494400">안드로이드 스튜디오로 '프린세스 메이커' 앱 만들기 (1편: 환경 구축부터 아바타 매칭까지)</a><span class="date">2026.09.28.</span></li>
+          <li><a href="https://m.blog.naver.com/run_daramg/224423974245">AI로 아이를 위한 '프린세스 메이커' 앱 만들기</a><span class="date">2026.09.27.</span></li>
+        </ul>
+      </section>
 
-    if added_count > 0:
-        html_content = update_counts(html_content)
-        with open(HTML_FILE, "w", encoding="utf-8") as f:
-            f.write(html_content)
+    </main>
+  </div>
 
-        # 새 글이 발행되었을 때만 sitemap.xml의 lastmod를 오늘 날짜(YYYY-MM-DD)로 자동 갱신
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        try:
-            with open(SITEMAP_FILE, "r", encoding="utf-8") as sf:
-                sitemap_content = sf.read()
-            sitemap_content = re.sub(r'<lastmod>.*?</lastmod>', f'<lastmod>{today_str}</lastmod>', sitemap_content)
-            with open(SITEMAP_FILE, "w", encoding="utf-8") as sf:
-                sf.write(sitemap_content)
-            print(f"sitemap.xml의 lastmod가 {today_str}로 자동 갱신되었습니다.")
-        except Exception as e:
-            print(f"sitemap.xml 갱신 중 오류 발생: {e}")
+  <script>
+    // 카테고리 필터 함수
+    function filterCategory(category, btnElement) {
+      const buttons = document.querySelectorAll('.cat-btn');
+      buttons.forEach(btn => btn.classList.remove('active'));
+      btnElement.classList.add('active');
 
-        print(f"총 {added_count}개의 새 글이 카테고리별로 반영되었습니다.")
-    else:
-        print("새로 추가할 블로그 글이 없습니다.")
+      const sections = document.querySelectorAll('.category-section');
+      sections.forEach(sec => {
+        if (sec.id === 'new-posts-section') {
+          const hasNewPosts = sec.querySelectorAll('li').length > 0;
+          sec.style.display = (category === 'all' && hasNewPosts) ? 'block' : 'none';
+          return;
+        }
+        if (category === 'all' || sec.getAttribute('data-category') === category) {
+          sec.style.display = 'block';
+        } else {
+          sec.style.display = 'none';
+        }
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
-if __name__ == "__main__":
-    main()
+    // 10개 초과 글에 접기/펼치기 버튼 동적 추가 (초기엔 10개만 보이고 나머지는 숨김)
+    function setupCollapsibleSections() {
+      const sections = document.querySelectorAll('.category-section');
+      sections.forEach(sec => {
+        if (sec.id === 'new-posts-section') return;
+        const items = sec.querySelectorAll('.post-list > li');
+        if (items.length > 10) {
+          // 11번째 글부터 숨김 처리
+          for (let i = 10; i < items.length; i++) {
+            items[i].style.display = 'none';
+          }
+          const remainCount = items.length - 10;
+
+          // 더보기 버튼 추가
+          const btnWrap = document.createElement('div');
+          btnWrap.className = 'more-btn-wrap';
+          btnWrap.innerHTML = `<button type="button" class="btn-toggle-more" data-expanded="false">
+            <span>더보기 (${remainCount}개 더보기 ▾)</span>
+          </button>`;
+
+          btnWrap.querySelector('button').addEventListener('click', function() {
+            const isExpanded = this.getAttribute('data-expanded') === 'true';
+            if (isExpanded) {
+              for (let i = 10; i < items.length; i++) {
+                items[i].style.display = 'none';
+              }
+              this.setAttribute('data-expanded', 'false');
+              this.innerHTML = `<span>더보기 (${remainCount}개 더보기 ▾)</span>`;
+            } else {
+              for (let i = 10; i < items.length; i++) {
+                items[i].style.display = 'flex';
+              }
+              this.setAttribute('data-expanded', 'true');
+              this.innerHTML = `<span>접기 ▴</span>`;
+            }
+          });
+
+          sec.appendChild(btnWrap);
+        }
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // 10개 초과 글 접기/펼치기 적용
+      setupCollapsibleSections();
+
+      // 자동화 새 글 유무 확인
+      const autoUl = document.getElementById('auto-post-ul');
+      if (autoUl && autoUl.querySelectorAll('li').length > 0) {
+        document.getElementById('new-posts-section').style.display = 'block';
+      }
+
+      // 전체 포스트 수 계산
+      const totalPosts = document.querySelectorAll('.post-list li').length;
+      const countAll = document.getElementById('count-all');
+      if (countAll) countAll.textContent = totalPosts;
+    });
+  </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ import re
 
 RSS_URL = "https://rss.blog.naver.com/run_daramg.xml"
 HTML_FILE = "index.html"
+SITEMAP_FILE = "sitemap.xml"
 
 def insert_into_category(html, category, li_html):
     # data-category="카테고리명" 섹션의 <ul class="post-list"> 바로 아래에 새 글 삽입
@@ -90,7 +91,7 @@ def main():
         # 1순위: 일치하는 카테고리 섹션에 삽입
         html_content, success = insert_into_category(html_content, category, li_html)
         
-        # 2순위: 만약 네이버에 새 카테고리를 만들어서 기존 6개와 이름이 다르면 상단 '새글' 섹션에 삽입
+        # 2순위: 만약 네이버에 새 카테고리를 만들어서 기존과 이름이 다르면 상단 '새글' 섹션에 삽입
         if not success:
             marker = "<!-- AUTO-POST-LIST -->"
             if marker in html_content:
@@ -105,6 +106,19 @@ def main():
         html_content = update_counts(html_content)
         with open(HTML_FILE, "w", encoding="utf-8") as f:
             f.write(html_content)
+
+        # 새 글이 발행되었을 때만 sitemap.xml의 lastmod를 오늘 날짜(YYYY-MM-DD)로 자동 갱신
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        try:
+            with open(SITEMAP_FILE, "r", encoding="utf-8") as sf:
+                sitemap_content = sf.read()
+            sitemap_content = re.sub(r'<lastmod>.*?</lastmod>', f'<lastmod>{today_str}</lastmod>', sitemap_content)
+            with open(SITEMAP_FILE, "w", encoding="utf-8") as sf:
+                sf.write(sitemap_content)
+            print(f"sitemap.xml의 lastmod가 {today_str}로 자동 갱신되었습니다.")
+        except Exception as e:
+            print(f"sitemap.xml 갱신 중 오류 발생: {e}")
+
         print(f"총 {added_count}개의 새 글이 카테고리별로 반영되었습니다.")
     else:
         print("새로 추가할 블로그 글이 없습니다.")
